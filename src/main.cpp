@@ -19,10 +19,14 @@ const int LOADCELL_SCK_PIN = 25;
 
 
 NimBLEServer* pServer = nullptr;
-NimBLECharacteristic *pCharacteristic = nullptr;
+NimBLECharacteristic* pWeightCharacteristic = nullptr;
+NimBLECharacteristic* pTareCharacteristic = nullptr;
+
 bool deviceConnected = false;
 #define SERVICE_UUID        "a67f5009-f645-404a-b4a3-24dd1ae7ea88"
-#define CHARACTERISTIC_UUID "012b6003-3363-401b-8bbf-6797b59edb0a"
+#define Weight_CHARACTERISTIC_UUID "012b6003-3363-401b-8bbf-6797b59edb0a"
+#define Tare_Characteristic_UUID "8819b079-6670-4c34-829b-9aa70a00869b"
+
 
 int buttonState = 0;
 #define BUTTON_PIN_R 0
@@ -99,7 +103,21 @@ class MyServerCallbacks: public NimBLEServerCallbacks{
   }
 };
 
+class MyTareCallbacks : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pTareCharacteristic) {
+      std::string value = pTareCharacteristic->getValue();
+      if (value.length() > 0) {
+        Serial.print("Received write request with value: ");
+        Serial.println(value.c_str());
 
+        // Check if the written value is the tare command
+        if (value == "tare") {
+          Serial.println("Taring the scale.");
+          scale.tare(); // Perform the tare operation
+        }
+      }
+    }
+};
 
 void setup() {
 
@@ -132,13 +150,19 @@ void setup() {
   pServer = NimBLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   NimBLEService *pService = pServer->createService(SERVICE_UUID);
-  pCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID,
+  pWeightCharacteristic = pService->createCharacteristic(
+      Weight_CHARACTERISTIC_UUID,
       NIMBLE_PROPERTY::READ|
       NIMBLE_PROPERTY::NOTIFY);
 
+  pTareCharacteristic = pService->createCharacteristic(
+                                        Tare_Characteristic_UUID,
+                                        NIMBLE_PROPERTY::WRITE
+                                      );
+  pTareCharacteristic->setCallbacks(new MyTareCallbacks());
+
   pService->start();
-  //pCharacteristic->setValue(reading);
+  //pWeightCharacteristic->setValue(reading);
 
   NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
@@ -160,8 +184,9 @@ void loop() {
       displayWeight(reading);
 
       if (deviceConnected){
-        pCharacteristic->setValue(String(reading).c_str());
-        pCharacteristic->notify();
+        pWeightCharacteristic->setValue(reading);
+        //pWeightCharacteristic->setValue(String(reading).c_str());
+        pWeightCharacteristic->notify();
       }
 
     }
@@ -173,14 +198,6 @@ void loop() {
 
   }
 };
-
-
-
-
-
-
-
-
 
 
 /*
