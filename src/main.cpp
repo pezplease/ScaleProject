@@ -16,6 +16,7 @@ const int LOADCELL_DOUT_PIN = 37;
 const int LOADCELL_SCK_PIN = 25;
 //-755.494
 //const int calibration_factor = -34375/45.5;
+bool tarenextloop = false;
 
 
 NimBLEServer* pServer = nullptr;
@@ -113,7 +114,8 @@ class MyTareCallbacks : public NimBLECharacteristicCallbacks {
         // Check if the written value is the tare command
         if (value == "tare") {
           Serial.println("Taring the scale.");
-          scale.tare(); // Perform the tare operation
+          tarenextloop = true;
+          value = "done";
         }
       }
     }
@@ -140,7 +142,7 @@ void setup() {
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   scale.set_scale(CALIBRATION_FACTOR);
   scale.tare();
-
+  displayWeight(0);
 
 
 
@@ -177,10 +179,16 @@ void loop() {
     Serial.println("Tare");
     scale.tare();
   }
+  if (tarenextloop == true){
+    Serial.println("tare via command");
+    scale.tare();
+    tarenextloop = false;
+
+  }
   if (scale.wait_ready_timeout(200)){
     reading = round(scale.get_units());
     if (reading != lastReading){
-      Serial.println(reading);
+      //Serial.println(reading);
       displayWeight(reading);
 
       if (deviceConnected){
@@ -190,7 +198,7 @@ void loop() {
       }
 
     }
-    Serial.println(reading);
+    //Serial.println(reading);
      lastReading = reading;
   }
   else{
